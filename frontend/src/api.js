@@ -1,6 +1,12 @@
 const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
 
 function buildUrl(path) {
+  if (!API_BASE) {
+    throw new Error(
+      'Backend URL is not configured. Rebuild and redeploy the frontend with VITE_API_BASE set to your Railway URL.',
+    )
+  }
+
   return `${API_BASE}${path}`
 }
 
