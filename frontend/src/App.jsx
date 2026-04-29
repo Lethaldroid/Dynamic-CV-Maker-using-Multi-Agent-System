@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { downloadUrl, fetchJob, submitJob } from './api'
+import { downloadUrl, fetchJob, parseCvFile, submitJob } from './api'
 
 const SAMPLE_CV = `Name: Jordan Smith
 Email: jordan@example.com
@@ -141,6 +141,7 @@ function App() {
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [parsingCv, setParsingCv] = useState(false)
   const [sampleLoaded, setSampleLoaded] = useState(true)
   const pollingRef = useRef(null)
 
@@ -205,12 +206,24 @@ function App() {
     reader.readAsText(file)
   }
 
-  const handleCvFileChange = (file) => {
+  const handleCvFileChange = async (file) => {
     if (!file) return
     setCvFile(file)
     setCvFileName(file.name)
     setSampleLoaded(false)
     setError('')
+
+    setParsingCv(true)
+    try {
+      const response = await parseCvFile(file)
+      setCvText(response.parsed_text)
+      setCvFile(null)
+      setCvFileName(`Parsed: ${response.filename}`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setParsingCv(false)
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -297,7 +310,7 @@ function App() {
               <label className="upload-card">
                 <span>CV file</span>
                 <input type="file" accept=".pdf,.txt,.md,.json" onChange={(e) => handleCvFileChange(e.target.files?.[0])} />
-                <small>{cvFileName}</small>
+                <small>{parsingCv ? 'Parsing CV...' : cvFileName}</small>
               </label>
               <label className="upload-card">
                 <span>JD file</span>
@@ -317,7 +330,7 @@ function App() {
             </label>
 
             <div className="actions-row">
-              <button className="primary-button" type="submit" disabled={submitting || (!cvFile && !cvText.trim()) || !jdText.trim()}>
+              <button className="primary-button" type="submit" disabled={submitting || parsingCv || (!cvFile && !cvText.trim()) || !jdText.trim()}>
                 {submitting ? 'Starting pipeline...' : 'Run optimization'}
               </button>
               {job?.status === 'completed' ? (

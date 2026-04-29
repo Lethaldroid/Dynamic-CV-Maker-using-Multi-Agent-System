@@ -29,10 +29,29 @@ def read_cv_file(path: str) -> str:
 
 
 def read_pdf_file(path: str) -> str:
-    """Extract text from a PDF file and transcribe it with the LLM."""
+    """Parse a PDF file with the LLM's vision input."""
     return call_llm_pdf(pdf_path=path)
 
 
 def read_pdf_bytes(data: bytes) -> str:
-    """Extract text from uploaded PDF bytes and transcribe it with the LLM."""
+    """Parse uploaded PDF bytes with the LLM's vision input."""
     return call_llm_pdf(pdf_bytes=data)
+
+
+def read_uploaded_cv_bytes(data: bytes, filename: str) -> str:
+    """Read an uploaded CV file from bytes and return parsed content."""
+    ext = os.path.splitext(filename)[1].lower()
+
+    if ext == ".pdf":
+        return read_pdf_bytes(data)
+
+    try:
+        content = data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Text CV uploads must be UTF-8 encoded.") from exc
+
+    if ext == ".json":
+        parsed = json.loads(content)
+        return json.dumps(parsed, indent=2)
+
+    return content

@@ -63,6 +63,26 @@ export async function submitJob({ title, cvText, jdText, cvFile }) {
   })
 }
 
+export async function parseCvFile(cvFile) {
+  const formData = new FormData()
+  formData.append('cv_file', cvFile)
+
+  const response = await fetch(buildUrl('/api/cv/parse'), {
+    method: 'POST',
+    body: formData,
+  })
+
+  const contentType = response.headers.get('content-type') || ''
+  const payload = contentType.includes('application/json') ? await response.json() : await response.text()
+
+  if (!response.ok) {
+    const message = typeof payload === 'string' ? payload : payload?.detail || 'Request failed'
+    throw new Error(message)
+  }
+
+  return payload
+}
+
 export async function fetchJob(jobId) {
   return request(`/api/jobs/${jobId}`)
 }

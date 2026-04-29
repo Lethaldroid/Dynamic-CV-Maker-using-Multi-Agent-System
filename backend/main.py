@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import json
+import os
+
 from fastapi import FastAPI, HTTPException, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-import os
 
 from backend.jobs import build_archive, get_job, list_jobs, submit_job
-from backend.schemas import JobCreateResponse, JobStatusResponse, JobSubmitRequest, JobSubmitUploadResponse
-from tools.file_reader import read_pdf_bytes
+from backend.schemas import CvParseResponse, JobCreateResponse, JobStatusResponse, JobSubmitRequest, JobSubmitUploadResponse
+from tools.file_reader import read_uploaded_cv_bytes
 
 app = FastAPI(title="AutoHire API", version="1.0.0")
 
@@ -54,16 +56,12 @@ async def create_job_upload(
     title: str | None = Form(default=None),
 ) -> JobSubmitUploadResponse:
     filename = cv_file.filename or "uploaded_cv"
-    ext = os.path.splitext(filename)[1].lower()
     raw_bytes = await cv_file.read()
 
-    if ext == ".pdf":
-        cv_text = read_pdf_bytes(raw_bytes)
-    else:
-        try:
-            cv_text = raw_bytes.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise HTTPException(status_code=400, detail="Text CV uploads must be UTF-8 encoded.") from exc
+    try:
+        cv_text = read_uploaded_cv_bytes(raw_bytes, filename)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     job = submit_job(cv_text, jd_text, title)
     return JobSubmitUploadResponse(
@@ -74,6 +72,19 @@ async def create_job_upload(
         title=job.get("title"),
         filename=filename,
     )
+
+
+@app.post("/api/cv/parse", response_model=CvParseResponse)
+async def parse_cv_file(cv_file: UploadFile = File(...)) -> CvParseResponse:
+    filename = cv_file.filename or "uploaded_cv"
+    raw_bytes = await cv_file.read()
+
+    try:
+        parsed_text = read_uploaded_cv_bytes(raw_bytes, filename)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return CvParseResponse(filename=filename, parsed_text=parsed_text)
 
 
 @app.get("/api/jobs", response_model=list[JobStatusResponse])

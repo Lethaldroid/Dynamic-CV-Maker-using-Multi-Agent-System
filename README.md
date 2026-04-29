@@ -113,6 +113,8 @@ Form fields:
 
 In local development, the Vite frontend uses the `/api` proxy automatically if `VITE_API_BASE` is not set. For deployed static hosting, set `VITE_API_BASE` to your backend URL.
 
+When you upload a CV in the UI, the app now parses it immediately and fills the CV text box with the parsed content before you submit the job.
+
 The backend renders PDF uploads into images and sends them through the LLM vision parser, while text-based CV uploads continue through the normal text pipeline.
 
 ## Setup

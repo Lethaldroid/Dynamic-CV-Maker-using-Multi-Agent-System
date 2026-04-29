@@ -20,6 +20,11 @@ class JobSubmitUploadResponse(BaseModel):
     filename: str
 
 
+class CvParseResponse(BaseModel):
+    filename: str
+    parsed_text: str
+
+
 class JobCreateResponse(BaseModel):
     job_id: str
     status: str
