@@ -135,6 +135,8 @@ function App() {
   const [title, setTitle] = useState('Jordan x Data Analyst role')
   const [cvText, setCvText] = useState(SAMPLE_CV)
   const [jdText, setJdText] = useState(SAMPLE_JD)
+  const [cvFile, setCvFile] = useState(null)
+  const [cvFileName, setCvFileName] = useState('No CV file selected')
   const [jobId, setJobId] = useState('')
   const [job, setJob] = useState(null)
   const [error, setError] = useState('')
@@ -184,6 +186,8 @@ function App() {
   }, [jobId])
 
   const loadSample = () => {
+    setCvFile(null)
+    setCvFileName('No CV file selected')
     setCvText(SAMPLE_CV)
     setJdText(SAMPLE_JD)
     setSampleLoaded(true)
@@ -201,13 +205,21 @@ function App() {
     reader.readAsText(file)
   }
 
+  const handleCvFileChange = (file) => {
+    if (!file) return
+    setCvFile(file)
+    setCvFileName(file.name)
+    setSampleLoaded(false)
+    setError('')
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     setSubmitting(true)
     setError('')
 
     try {
-      const response = await submitJob({ title, cvText, jdText })
+      const response = await submitJob({ title, cvText, jdText, cvFile })
       setJobId(response.job_id)
       setJob({
         job_id: response.job_id,
@@ -284,8 +296,8 @@ function App() {
             <div className="upload-row">
               <label className="upload-card">
                 <span>CV file</span>
-                <input type="file" accept=".txt,.md,.json" onChange={(e) => readFile(e.target.files?.[0], setCvText, setSampleLoaded)} />
-                <small>{sampleLoaded ? 'Sample loaded' : 'From uploaded file or pasted text'}</small>
+                <input type="file" accept=".pdf,.txt,.md,.json" onChange={(e) => handleCvFileChange(e.target.files?.[0])} />
+                <small>{cvFileName}</small>
               </label>
               <label className="upload-card">
                 <span>JD file</span>
@@ -305,7 +317,7 @@ function App() {
             </label>
 
             <div className="actions-row">
-              <button className="primary-button" type="submit" disabled={submitting || !cvText.trim() || !jdText.trim()}>
+              <button className="primary-button" type="submit" disabled={submitting || (!cvFile && !cvText.trim()) || !jdText.trim()}>
                 {submitting ? 'Starting pipeline...' : 'Run optimization'}
               </button>
               {job?.status === 'completed' ? (

@@ -11,6 +11,15 @@ class JobSubmitRequest(BaseModel):
     title: Optional[str] = Field(default=None, description="Optional friendly label for the job")
 
 
+class JobSubmitUploadResponse(BaseModel):
+    job_id: str
+    status: str
+    stage: str
+    message: str
+    title: Optional[str] = None
+    filename: str
+
+
 class JobCreateResponse(BaseModel):
     job_id: str
     status: str

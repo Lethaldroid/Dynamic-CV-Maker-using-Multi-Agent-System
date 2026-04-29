@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 import os
 
 from backend.jobs import build_archive, get_job, list_jobs, submit_job
-from backend.schemas import JobCreateResponse, JobStatusResponse, JobSubmitRequest
+from backend.schemas import JobCreateResponse, JobStatusResponse, JobSubmitRequest, JobSubmitUploadResponse
+from tools.file_reader import read_pdf_bytes
 
 app = FastAPI(title="AutoHire API", version="1.0.0")
 
@@ -43,6 +44,35 @@ def create_job(payload: JobSubmitRequest) -> JobCreateResponse:
         stage=job["stage"],
         message=job["message"],
         title=job.get("title"),
+    )
+
+
+@app.post("/api/jobs/upload", response_model=JobSubmitUploadResponse)
+async def create_job_upload(
+    cv_file: UploadFile = File(...),
+    jd_text: str = Form(...),
+    title: str | None = Form(default=None),
+) -> JobSubmitUploadResponse:
+    filename = cv_file.filename or "uploaded_cv"
+    ext = os.path.splitext(filename)[1].lower()
+    raw_bytes = await cv_file.read()
+
+    if ext == ".pdf":
+        cv_text = read_pdf_bytes(raw_bytes)
+    else:
+        try:
+            cv_text = raw_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Text CV uploads must be UTF-8 encoded.") from exc
+
+    job = submit_job(cv_text, jd_text, title)
+    return JobSubmitUploadResponse(
+        job_id=job["job_id"],
+        status=job["status"],
+        stage=job["stage"],
+        message=job["message"],
+        title=job.get("title"),
+        filename=filename,
     )
 
 

@@ -21,6 +21,7 @@ Job status + score history + final artifacts
 ## What The App Does
 
 - Takes in a CV and a job description from the SPA.
+- Supports PDF CV uploads, plus text/markdown/JSON fallback.
 - Runs the full agent pipeline in the background.
 - Streams progress through polling so the UI can show stage updates while work is running.
 - Displays ATS stats, keyword coverage, score history, the tailored CV, and the generated cover letter.
@@ -101,6 +102,19 @@ Downloads a ZIP with:
 - `cover_letter.md`
 - `ats_report.json`
 
+### `POST /api/jobs/upload`
+Submit a job with a CV file upload. This is the preferred path for PDF CVs.
+
+Form fields:
+
+- `cv_file`: PDF, TXT, MD, or JSON file
+- `jd_text`: job description text
+- `title`: optional label
+
+In local development, the Vite frontend uses the `/api` proxy automatically if `VITE_API_BASE` is not set. For deployed static hosting, set `VITE_API_BASE` to your backend URL.
+
+The backend renders PDF uploads into images and sends them through the LLM vision parser, while text-based CV uploads continue through the normal text pipeline.
+
 ## Setup
 
 ### Python backend
@@ -137,7 +151,7 @@ Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
 
 The pipeline still supports the CLI flow by reading files from `inputs/`:
 
-- `inputs/cv.txt`, `inputs/cv.md`, or `inputs/cv.json`
+- `inputs/cv.pdf`, `inputs/cv.txt`, `inputs/cv.md`, or `inputs/cv.json`
 - `inputs/jd.txt`, `inputs/jd.md`, or `inputs/jd.json`
 
 ## CLI Mode
