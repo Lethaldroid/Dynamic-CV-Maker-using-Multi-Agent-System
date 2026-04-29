@@ -35,12 +35,14 @@ User Input (CV + JD)
 ## Tool Calls
 
 - **`read_cv_file(path)`** — reads `.md`, `.txt`, `.json` CV files (mandatory)
-- **`extract_keywords(jd)`** / **`keyword_overlap_score(cv, keywords)`** — deterministic ATS keyword matching using `rapidfuzz`
+- **`extract_keywords(job_description)`** — uses the LLM to extract the top 20–25 multi-word technical skills, tools and domain phrases from a job description; returns a JSON list of strings (see `tools/ats_tools.py`).
+- **`keyword_overlap_score(cv_text, keywords)`** — deterministic, case-insensitive substring matching of extracted keywords against the CV; returns a tuple `(score, present_keywords, missing_keywords)` (see `tools/ats_tools.py`).
+- **`run_scorer_agent(cv, jd)`** — orchestrates LLM scoring + deterministic keyword match and returns a result dict with these keys: `skills_match`, `experience_match`, `formatting_quality`, `brief_reasoning`, `keyword_match`, `present_keywords`, `missing_keywords`, `overall_score` (see `agents/scorer_agent.py`).
 
 ## Setup
 
 ```bash
-pip install requests rapidfuzz
+pip install requests
 ```
 
 ## Usage
@@ -64,10 +66,16 @@ All files saved to `outputs/` with timestamps:
 ## Scoring Formula
 
 ```
-Overall = 40% keyword_match + 30% skills_match + 20% experience_match + 10% formatting_quality
+Overall = 30% keyword_match + 30% skills_match + 25% experience_match + 15% formatting_quality
 ```
 
-Keyword match uses a hybrid: 60% LLM judgment + 40% deterministic fuzzy matching (`rapidfuzz`).
+How keyword matching works:
+- `extract_keywords()` uses the LLM to produce a focused list of job keywords/phrases (top ~20).
+- `keyword_overlap_score()` performs exact, case-insensitive substring checks of those phrases in the CV and returns a `keyword_match` percentage plus lists of present/missing keywords.
+
+The scorer combines LLM-provided soft scores (`skills_match`, `experience_match`, `formatting_quality`) with the deterministic `keyword_match` to produce the final `overall_score` (see `agents/scorer_agent.py`). The agent falls back to conservative default scores if the LLM output cannot be parsed as JSON.
+
+Note: the current implementation uses exact-substring matching for multi-word phrases (safer for phrases than naive fuzzy single-word matches).
 
 ## Project Structure
 
