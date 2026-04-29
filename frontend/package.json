@@ -1,4 +1,5 @@
 {
+  "homepage": "https://github.com/Lethaldroid/Dynamic-CV-Maker-using-Multi-Agent-System",
   "name": "autohire-frontend",
   "private": true,
   "version": "1.0.0",
@@ -7,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "predeploy": "npm run build"
   },
   "dependencies": {
     "react": "^18.3.1",
