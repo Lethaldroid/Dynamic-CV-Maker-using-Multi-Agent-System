@@ -32,6 +32,12 @@ Thumbs.db
 outputs/
 inputs/
 
+# Frontend dependencies and builds
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+
 # dotenv
 .env
 

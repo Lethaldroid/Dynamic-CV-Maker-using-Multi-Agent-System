@@ -16,7 +16,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from tools.file_reader import read_cv_file
-from workflow.graph import run_pipeline
+from workflow.pipeline import run_pipeline
 
 
 INPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inputs")
@@ -60,6 +60,8 @@ def save_outputs(state, output_dir: str = "outputs"):
         "target_reached": state.done,
         "score_history": state.score_history,
         "final_score": state.score_history[-1] if state.score_history else {},
+        "best_score": state.best_score,
+        "best_cv": state.best_cv,
     }
     report_path = os.path.join(output_dir, f"ats_report_{ts}.json")
     with open(report_path, "w") as f:

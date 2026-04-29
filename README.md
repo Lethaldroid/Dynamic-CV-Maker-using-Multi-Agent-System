@@ -1,99 +1,163 @@
-# AutoHire — Multi-Agent Resume & Cover Letter Optimizer
+﻿# AutoHire — FastAPI + SPA Resume Optimizer
 
-A multi-agent AI system that tailors your CV to a job description, iteratively improves it until it hits a target ATS score (≥90%), then generates a personalized cover letter.
+AutoHire is a multi-agent system that tailors a CV to a job description, iterates on the resume until it reaches a target ATS score, and generates a cover letter. The project now has a FastAPI backend for job orchestration and a React + Vite SPA for submission, live progress, and results review.
 
 ## Architecture
 
 ```
-User Input (CV + JD)
+React SPA (frontend/)
+        ↓ POST /api/jobs
+FastAPI backend (backend/main.py)
         ↓
-   Coordinator (workflow/graph.py)
+Job runner + in-memory store (backend/jobs.py)
         ↓
- [Agent 1] CV Parser     → structured JSON profile
+Pipeline orchestration (workflow/pipeline.py)
         ↓
- [Agent 2] CV Maker      → tailored Markdown resume
+[Parser → CV Maker → Scorer → Critic/Refiner loop → Cover Letter]
         ↓
- [Agent 3] ATS Scorer    → score report (keyword/skills/experience/formatting)
-        ↓
-  score < 90?
-    YES → [Agent 4] Critic → feedback → back to CV Maker (loop)
-    NO  → [Agent 5] Cover Letter Agent → final letter
-        ↓
-   Outputs (CV + Cover Letter + ATS Report)
+Job status + score history + final artifacts
 ```
 
-## Agents
+## What The App Does
 
-| Agent | File | Role |
-|-------|------|------|
-| CV Parser | `agents/parser_agent.py` | Extracts structured JSON from raw CV |
-| CV Maker | `agents/cv_agent.py` | Writes tailored ATS-optimized resume |
-| ATS Scorer | `agents/scorer_agent.py` | Hybrid LLM + fuzzy keyword scoring |
-| Critic | `agents/critic_agent.py` | Identifies gaps, produces fix recommendations |
-| Cover Letter | `agents/cover_agent.py` | Generates personalized cover letter |
-
-## Tool Calls
-
-- **`read_cv_file(path)`** — reads `.md`, `.txt`, `.json` CV files (mandatory)
-- **`extract_keywords(job_description)`** — uses the LLM to extract the top 20–25 multi-word technical skills, tools and domain phrases from a job description; returns a JSON list of strings (see `tools/ats_tools.py`).
-- **`keyword_overlap_score(cv_text, keywords)`** — deterministic, case-insensitive substring matching of extracted keywords against the CV; returns a tuple `(score, present_keywords, missing_keywords)` (see `tools/ats_tools.py`).
-- **`run_scorer_agent(cv, jd)`** — orchestrates LLM scoring + deterministic keyword match and returns a result dict with these keys: `skills_match`, `experience_match`, `formatting_quality`, `brief_reasoning`, `keyword_match`, `present_keywords`, `missing_keywords`, `overall_score` (see `agents/scorer_agent.py`).
-
-## Setup
-
-```bash
-pip install requests
-```
-
-## Usage
-Put your source files in the `inputs/` folder:
-- `inputs/cv.md`, `inputs/cv.txt`, or `inputs/cv.json`
-- `inputs/jd.txt`, `inputs/jd.md`, or `inputs/jd.json`
-
-Then run:
-```bash
-python main.py
-```
-
-The program automatically reads the first matching CV and JD file it finds in `inputs/`.
-## Outputs
-
-All files saved to `outputs/` with timestamps:
-- `tailored_cv_<ts>.md` — ATS-optimized resume
-- `cover_letter_<ts>.md` — personalized cover letter
-- `ats_report_<ts>.json` — iteration history & score breakdown
-
-## Scoring Formula
-
-```
-Overall = 30% keyword_match + 30% skills_match + 25% experience_match + 15% formatting_quality
-```
-
-How keyword matching works:
-- `extract_keywords()` uses the LLM to produce a focused list of job keywords/phrases (top ~20).
-- `keyword_overlap_score()` performs exact, case-insensitive substring checks of those phrases in the CV and returns a `keyword_match` percentage plus lists of present/missing keywords.
-
-The scorer combines LLM-provided soft scores (`skills_match`, `experience_match`, `formatting_quality`) with the deterministic `keyword_match` to produce the final `overall_score` (see `agents/scorer_agent.py`). The agent falls back to conservative default scores if the LLM output cannot be parsed as JSON.
-
-Note: the current implementation uses exact-substring matching for multi-word phrases (safer for phrases than naive fuzzy single-word matches).
+- Takes in a CV and a job description from the SPA.
+- Runs the full agent pipeline in the background.
+- Streams progress through polling so the UI can show stage updates while work is running.
+- Displays ATS stats, keyword coverage, score history, the tailored CV, and the generated cover letter.
+- Provides a ZIP download containing the final resume, cover letter, and ATS report.
 
 ## Project Structure
 
 ```
 autohire/
-├── main.py              # CLI entry point
-├── config.py            # API URL, model, targets
-├── llm.py               # LLM client (proxy + mock)
-├── tools/
-│   ├── file_reader.py   # Tool: read CV files
-│   └── ats_tools.py     # Tool: keyword extraction & fuzzy matching
+├── backend/
+│   ├── main.py          # FastAPI app and routes
+│   ├── jobs.py          # In-memory job store and background runner
+│   ├── schemas.py       # Pydantic request/response models
+│   └── smoke_test.py    # Tiny backend sanity script
+├── frontend/
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── App.jsx
+│       ├── api.js
+│       ├── main.jsx
+│       └── styles.css
 ├── agents/
-│   ├── parser_agent.py
-│   ├── cv_agent.py
-│   ├── scorer_agent.py
-│   ├── critic_agent.py
-│   └── cover_agent.py
+├── tools/
 ├── workflow/
-│   └── graph.py         # Orchestration controller
-└── outputs/             # Generated files
+│   └── pipeline.py      # Shared orchestration logic used by CLI + API
+├── main.py              # CLI entry point
+├── llm.py               # Shared LLM client
+├── config.py            # Proxy/model/target defaults
+└── requirements.txt
 ```
+
+## Backend API
+
+### `POST /api/jobs`
+Submit a job for processing.
+
+Request body:
+
+```json
+{
+  "title": "Data Analyst role",
+  "cv_text": "...",
+  "jd_text": "..."
+}
+```
+
+Response:
+
+```json
+{
+  "job_id": "8f4f...",
+  "status": "queued",
+  "stage": "queued",
+  "message": "Job queued",
+  "title": "Data Analyst role"
+}
+```
+
+### `GET /api/jobs/{job_id}`
+Returns the current job snapshot, including:
+
+- `status`, `stage`, `message`
+- `iteration`, `done`, `best_score`, `overall_score`
+- `score_history`
+- `parsed_profile`
+- `current_cv`
+- `critic_feedback`
+- `cover_letter`
+- `result`
+- `error`
+
+### `GET /api/jobs/{job_id}/download`
+Downloads a ZIP with:
+
+- `tailored_cv.md`
+- `cover_letter.md`
+- `ats_report.json`
+
+## Setup
+
+### Python backend
+
+```bash
+pip install -r requirements.txt
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+```
+
+## Run Locally
+
+### 1. Start the backend
+
+```bash
+uvicorn backend.main:app --reload --port 8000
+```
+
+### 2. Start the frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
+
+## Inputs
+
+The pipeline still supports the CLI flow by reading files from `inputs/`:
+
+- `inputs/cv.txt`, `inputs/cv.md`, or `inputs/cv.json`
+- `inputs/jd.txt`, `inputs/jd.md`, or `inputs/jd.json`
+
+## CLI Mode
+
+```bash
+python main.py
+```
+
+## Scoring
+
+The backend and CLI share the same scoring pipeline.
+
+```
+Overall = 30% keyword_match + 30% skills_match + 25% experience_match + 15% formatting_quality
+```
+
+`keyword_match` is derived from LLM keyword extraction plus exact keyword overlap checks, and the overall score is calculated from the scorer output in `agents/scorer_agent.py`.
+
+## Notes
+
+- The backend uses an in-memory job store for now. It is great for local development and easy to replace with Redis or a database later.
+- The frontend polls the backend for progress updates, which keeps the implementation simple and reliable.
+- The pipeline logic itself is still in the existing agent modules; the new API wraps them rather than rewriting the core behavior.
