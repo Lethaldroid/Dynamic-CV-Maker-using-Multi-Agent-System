@@ -133,6 +133,22 @@ npm run dev
 
 Open the Vite URL shown in the terminal, usually `http://localhost:5173`.
 
+## GitHub Pages Hosting
+
+You can host the frontend on GitHub Pages, but the backend must stay on a separate host because this app needs a running FastAPI API and background job runner.
+
+### Recommended setup
+
+1. Deploy the frontend from the `frontend/` folder.
+2. Set the repository variable `VITE_API_BASE` to your backend URL, for example `https://your-backend.example.com`.
+3. Let the GitHub Actions workflow build and publish the static site.
+
+### Files added for GitHub Pages
+
+- `.github/workflows/deploy-frontend.yml` builds `frontend/` and publishes `frontend/dist` to GitHub Pages.
+- `frontend/vite.config.js` now uses a relative base path so assets load correctly from a GitHub Pages subpath.
+- `frontend/package.json` includes a `deploy` script for publishing the built `dist/` folder.
+
 ## Inputs
 
 The pipeline still supports the CLI flow by reading files from `inputs/`:
